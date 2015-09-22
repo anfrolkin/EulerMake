@@ -676,17 +676,20 @@ namespace eulerMake
             }
             while ((listHist.Count > 0) && (currentNumberN >= 0));
         }
+        
+        
 
     }
 
 
+    
 
     class Program
     {
 
         public static void Main(string[] args)
         {
-			string edfName = "adder";//"ha_2tg";
+        	string edfName = "d_trig";//"adder";//"ha_2tg";
 			
 			edfName = edfName.Split('.')[0];
 			Scanner scanner = new Scanner(edfName + ".edf");//xor2v8_1 adder
@@ -714,12 +717,11 @@ namespace eulerMake
             double delta1 = ((double)((int)sp1.TotalMilliseconds)) / 1000.0;
 			Console.WriteLine("placing = " + delta1 + " seconds");
            
-			int curModel = 0;//Params.ModelWithDif;
+			int curModel = Params.ModelBusM2InMiddle;
 			Params.SetModel(curModel);
 			string vlfName = edfName + "_" + Params.GetShortName(curModel);
-			CompileOneModel(vlfName, tr);
-            //Console.WriteLine("Press any key to continue . . . ");
-            //Console.ReadKey(true);
+			//CompileOneModel(vlfName, tr);
+			CompileTransLines(vlfName, tr);
         }
         
         private static void CompileOneModel(string vlfName, Transistors tr)
@@ -727,6 +729,7 @@ namespace eulerMake
             ConstructorLayout layout = new ConstructorLayout(tr.GetPlacedTransN(), tr.GetPlacedTransP(), tr.GetNodeList());
             DateTime start2 = System.DateTime.Now;
             
+            layout.AddContactsFromPRN(vlfName);
 
             using (System.IO.StreamWriter file = new System.IO.StreamWriter(@"route.txt"))
             {
@@ -765,6 +768,29 @@ namespace eulerMake
             
 			
 			Console.WriteLine("routing = " + delta2 + " seconds");
+        }
+        
+        
+        /// <summary>
+        /// Compile N and P lines of transistors
+        /// </summary>
+        /// <param name="name of vlf file"></param>
+        /// <param name="transistors tr"></param>
+        static void CompileTransLines(string vlfName, Transistors tr)
+        {
+        	ConstructorLayout layout = new ConstructorLayout(tr.GetPlacedTransN(), tr.GetPlacedTransP(), tr.GetNodeList());
+            DateTime start2 = System.DateTime.Now;
+            
+
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter(@"route.txt"))
+            {
+	        	Params.SetAllLayersRange();
+	        	layout.InitAllDistances(file);
+	
+	            
+	            layout.CreateTopFile(file);
+	            layout.CreateFileWithNames(vlfName + "_SMALL" + ".cpp", vlfName + "_SMALL");
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ namespace eulerMake
         public const string cnaType = "CNA";
         public const string cpaType = "CPA";
         public const string cmType = "CM";
+        public const string b1Type = "B1";
         public const string VccName = "VCC";
         public const string GndName = "&0";
         public const string errorType = "Error type";
@@ -227,6 +228,8 @@ namespace eulerMake
         		return Params.met2Type;
         	if (inMaterial == Material.si_)
         		return Params.silType;
+        	if (inMaterial == Material.b1_)
+        		return Params.b1Type;
         	
         	return errorType;
         }
@@ -305,6 +308,7 @@ namespace eulerMake
     	public const int m1_ = 1;
     	public const int cm_ = 24;
     	public const int m2_ = 3;
+    	public const int b1_ = 17;
     	
         public const string diffusionName = "diffusion";
     	public const string fullName = "full";
@@ -313,6 +317,22 @@ namespace eulerMake
     	
     	public Material()
     	{
+    	}
+    	
+    	
+    	static public int FromStrToNumber(string inMaterial)
+    	{
+    		if ( (inMaterial == Params.naType) || (inMaterial == Params.paType) ||
+    		    (inMaterial == Params.silType) )
+    			return si_;
+    		if (inMaterial == Params.met1Type)
+    			return m1_;
+    		if (inMaterial == Params.met2Type)
+    			return m2_;
+    		if (inMaterial == Params.b1Type)
+    			return b1_;
+    		
+    		return -1;
     	}
     }
     
@@ -333,6 +353,7 @@ namespace eulerMake
     			return metal1Trace;
     		if (inLayer == Params.met2Type)
     			return metal2Trace;
+    		
     		return -1;
     	}
     	

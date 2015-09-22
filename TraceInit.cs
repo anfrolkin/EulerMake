@@ -60,6 +60,20 @@ namespace eulerMake
 			//nodeList = inNodeList;
 		}
 		
+		public void AddNamedPins(List<ContactNamed> inCts)
+		{
+        	foreach(ContactNamed cnt in inCts)
+        	{
+        		Node fndNode = nodeList.Find(nd => nd.name == cnt.namePoint);
+        		if (diffusionException.FindIndex(name => name == cnt.namePoint) < 0 && fndNode != null)
+        		{
+        			ContactSimple smpl = new ContactSimple(cnt);
+        			smpl.SetInOut();
+        			fndNode.arcCollection.Add(smpl);
+        		}
+        	}
+		}
+		
 		public List<Node> GetNodeList()
 		{
 			return nodeList;

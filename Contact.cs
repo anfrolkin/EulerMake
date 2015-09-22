@@ -134,20 +134,6 @@ namespace eulerMake
         public int y;
     }
     
-    public class ContactNamed : PairInt
-    {
-    	public ContactNamed(int inX, int inY, string inType) : base(inX, inY)
-        {
-            typePoint = inType;
-        }
-    	
-    	public ContactNamed(PairInt inPosition, string inType) : base(inPosition)
-        {
-            typePoint = inType;
-        }
-
-        public string typePoint;
-    }
        /* public static bool operator == (Contact in1, Contact in2)
         {
         	// If one is null, but not both, return false.
@@ -1081,5 +1067,14 @@ namespace eulerMake
     //{
     
     
+    public class ContactNamed : ContactSimple
+    {
+    	public ContactNamed(int inX, int inY, int inLayer, string inName) : base(inX, inY, inLayer)
+        {
+            namePoint = inName;
+        }
+    	
+        public string namePoint;
+    }
     
 }

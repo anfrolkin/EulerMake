@@ -8,6 +8,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Globalization;
 //using System.Drawing;
@@ -94,6 +95,17 @@ namespace eulerMake
             
             return trace.IsEnd();
         }
+        
+        /*public void AddNamedPins(List<ContactNamed> inCts)
+        {
+        	foreach(ContactNamed cnt in inCts)
+        	{
+        		if (diffusionExcep.FindIndex(name => name == cnt.namePoint) < 0)
+        		{
+        			trace
+        		}
+        	}
+        }*/
 
         public void CorrectTrace(System.IO.StreamWriter file)
         {
@@ -191,19 +203,6 @@ namespace eulerMake
             right = new ContactSimple(wide - 1, Params.VccPosition, vccGndType);
             fixedConnections.Add(new LineStruct(left, right));
         }
-        /*
-        public void FindingFirstPairs()
-        {        		
-        		foreach (Node currentNode in nodeList)//(int number in sequenceOne)
-        		{
-        			processNode = currentNode;
-        			
-        			firstRouting.AddRange(PlaceFirstPairs());//bestRout.allLines, returnHistoryPairs.allLines, intersectionLines);
-        		}
-        }
-        	*/
-        	//return returnHistoryPairs;
-        //}
         
         public void InitAllDistances(System.IO.StreamWriter file)//List<Node> inPlaceNodes)
         {
@@ -489,7 +488,158 @@ namespace eulerMake
                 }
             }
         }*/
+        public void AddContactsFromPRN(string inName)
+	    {
+        	string fileName = inName + "_SMALL.prn";
+	    	if (!System.IO.File.Exists(fileName))
+	    	{
+	    		Console.WriteLine("No extra file with contacts");
+	    		return;
+	    	}
+	    	List<ContactNamed> allCotacts = new List<ContactNamed>();
+	    	
+	    	System.Text.Encoding enc = System.Text.Encoding.GetEncoding(1251);
+	    	string[] fileStrings = System.IO.File.ReadAllLines(fileName, enc);
+	    	
+	    	List<LineStruct> borders = FindCellBorder(fileStrings);
+	    	List<ContactNamed> namedCotacts = FindInputOutput(fileStrings, borders);
+	    	
+	    	trace.AddNamedPins(namedCotacts);
+        }
         
+        public List<ContactNamed> FindInputOutput(string[] fileStrings, List<LineStruct> inBorder)
+	    {
+	    	List<ContactNamed> allCotacts = new List<ContactNamed>();
+	    	for(int i = 0; i < fileStrings.Length; i++)
+	    	{
+	    		if (fileStrings[i].IndexOf("СПИСОК ВЕКТОРНЫХ ТЕКСТОВ") >= 0)
+	    		{
+	    			allCotacts.AddRange(FindVectorText(fileStrings, i));
+	    		}
+	    	}
+	    	
+	    	List<ContactNamed> namedCotacts = new List<ContactNamed>();
+	    	foreach (LineStruct line in inBorder)
+	    	{
+	    		foreach(ContactNamed cnt in allCotacts)
+	    		{
+	    			if (line.IntersectsWithPoint(cnt.x, cnt.y, Material.b1_))
+	    				namedCotacts.Add(cnt);
+	    		}
+	    	}
+	    	
+	    	return namedCotacts;
+	    }
+	    
+	    private List<ContactNamed> FindVectorText(string[] fileStrings, int idx)
+	    {
+	    	List<ContactNamed> namedCotacts = new List<ContactNamed>();
+	    	for(int i = idx; i < fileStrings.Length; )
+	    	{
+	    		int startIdx = fileStrings[i].IndexOf("name=");// + 5;
+	    		if (startIdx >= 0)
+	    		{
+	    			startIdx += 5;
+	    			int endIdx = fileStrings[i].IndexOf(" ", startIdx);
+	    			string name = fileStrings[i].Substring(startIdx, endIdx - startIdx);
+	    			
+	    			int typeSt = fileStrings[i + 1].IndexOf("sl=");
+	    			if (typeSt >= 0)
+	    			{
+	    				int typeEn = fileStrings[i + 1].IndexOf("_");
+	    				typeSt += 3;
+	    				string type = fileStrings[i + 1].Substring(typeSt, typeEn - typeSt);
+	    				if (type[0] == 'T')
+	    					type = type.Substring(1);
+	    				
+		    			
+	    				for (int k = i + 1; k < fileStrings.Length; )
+	    				{
+		    				int coordXst = fileStrings[k].IndexOf("(BASE_CRD,");
+		    				if (coordXst >= 0)
+		    				{
+			    				coordXst += 10;
+			    				int coordXen = fileStrings[k].IndexOf(",", coordXst);
+			    				int coordYen = fileStrings[k].IndexOf(")", coordXen);
+			    				
+			    				string coordXstr = fileStrings[k].Substring(coordXst, coordXen - coordXst);
+			    				string coordYstr = fileStrings[k].Substring(coordXen + 1, coordYen - coordXen - 1);
+			    				
+			    				double coordX = double.Parse(coordXstr.Replace('.', ','));
+			    				double coordY = double.Parse(coordYstr.Replace('.', ','));
+			    				
+			    				int ndxSecond = trace.GetNodeList().FindIndex(element => element.name == name);
+				            	if (ndxSecond >= 0 || type == Params.b1Type)
+				            	{
+				            		ContactNamed cnt = new ContactNamed((int)(coordX * 2.0), (int)(coordY * 2.0), Material.FromStrToNumber(type),
+				            		                                   name);
+				            		//cnt.SetInOut();
+				            		namedCotacts.Add(cnt);
+				        			//nodeList[ndxSecond].AddContact(cnt);
+				            	}
+				            	k++;
+				            	i++;
+		    				}
+		    				else if (fileStrings[k].IndexOf("СПИСОК") >= 0 )
+		    					return namedCotacts;
+		    				else if ( fileStrings[k].IndexOf("name=") >= 0)
+		    				{
+		    					i = k;
+		    					break;
+		    				}
+		    				else
+		    				{
+		    					k++;
+		    					i++;
+		    				}
+	    				}
+	    			}
+	    		}
+	    		else
+	    			i++;
+	    		//int endIdx = fileStrings[i].IndexOf(" ", startIdx);
+	    		// TM1(0.00, 26.50, "VCC");
+	    		
+	    		//if (fileStrings[i].IndexOf("СПИСОК ВЕКТОРНЫХ ТЕКСТОВ") >= 0)
+	    		//{}
+	    	}
+	    	return namedCotacts;
+	    }
+	    
+	    private List<LineStruct> FindCellBorder(string[] fileStrings)
+	    {
+	    	List<ContactNamed> namedCotacts = new List<ContactNamed>();
+	    	
+	    	for(int i = 0; i < fileStrings.Length; i++)
+	    	{
+	    		if (fileStrings[i].IndexOf("СПИСОК ШИН") >= 0)
+	    		{
+	    			namedCotacts.AddRange(FindVectorText(fileStrings, i));
+	    		}
+	    	}
+	    	
+	    	
+	    	List<ContactNamed> contactB1 = new List<ContactNamed>();
+	    	foreach (ContactNamed cnt in namedCotacts)
+	    	{
+	    		if (cnt.layer == Material.b1_)
+	    			contactB1.Add(cnt);
+	    	}
+	    	
+	    	List<LineStruct> borderLines = new List<LineStruct>();
+	    	
+	    	if (contactB1.Count < 4)
+	    		return borderLines;
+	    	
+	    	for(int i = 0; i < 3; i++)
+	    	{
+    			borderLines.Add( new LineStruct( contactB1[i], contactB1[i + 1], Material.b1_) );
+	    	}
+	    	borderLines.Add( new LineStruct( contactB1[0], contactB1[3], Material.b1_) );
+	    	
+	    	return borderLines;
+	    }
+	    
 		public void CreateFile(string inPath, string nameFrag)
 		{
             using (System.IO.StreamWriter file = new System.IO.StreamWriter(inPath))
@@ -611,6 +761,7 @@ namespace eulerMake
                 
                 file.WriteLine(AddKnBorder());
                 file.WriteLine(AddKpBorder());
+                file.WriteLine(AddB1Border());
 
                 /*file.WriteLine("    // Контакты");
                 foreach (NodeTraces cnt in nodeConnectionDict.Values)
@@ -626,6 +777,108 @@ namespace eulerMake
                     	}
                     }
                 }*/
+                    
+                file.WriteLine("    ENDF");
+                file.WriteLine("    return " + nameFrag + ";");
+                file.WriteLine("}");
+            }
+		}
+		
+		
+		public void CreateFileWithNames(string inPath, string nameFrag)
+		{
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter(inPath))
+        	{
+                file.WriteLine("#include \"stdafx.h\" ");
+                file.WriteLine("layout& SUM(void)");
+                file.WriteLine("{");
+                file.WriteLine("    FRAG(" + nameFrag + ")");
+                file.WriteLine("    COMPACTION_MODE(X_Y)");
+                //file.WriteLine("    // Транзисторы");
+                CultureInfo  culture = CultureInfo.CreateSpecificCulture("en-CA");
+                double coordX = ((double)Params.leftBorder + 1.0) / 2.0;// 2.0;//4.0
+                double coordY = ((double)Params.lineP + 1.0) / 2.0;
+                foreach (string str in placedP)
+                {
+                    if (str != "")
+                        file.WriteLine("    W(1.00) L(1.00) OR(SOUTH) SIMM TP(" + coordX.ToString("F2", culture) +
+                            ", " + coordY.ToString("F2", culture) + ");");
+                    coordX += 1.0;//2.0
+                }
+                coordX = ((double)Params.leftBorder + 1.0) / 2.0;
+                coordY = ((double)Params.lineN - 1.0) / 2.0;
+                foreach (string str in placedN)
+                {
+                    if (str != "")
+                        file.WriteLine("    W(1.00) L(1.00) OR(NORTH) SIMM TN(" + coordX.ToString("F2", culture) + 
+                            ", " + coordY.ToString("F2", culture) + ");");
+                    coordX += 1.0;
+                }
+                
+                //file.WriteLine("    // Шины, линии");
+                foreach (string curName in nodeConnectionDict.Keys)
+                	//NodeTraces cnt in nodeConnectionDict.Values)
+                {
+                	NodeTraces cnt = nodeConnectionDict[curName];
+                	//TM1(0.00, 26.50, "VCC");
+                	if (cnt.lines.Count > 0)
+                	{
+                		string layerPoint = "T" + Params.DefineMaterial(cnt.lines[0].type);
+                		coordX = ((double)cnt.lines[0].Left) / 2.0;
+                		coordY = ((double)cnt.lines[0].Top) / 2.0 + CorrectTop(cnt.lines[0]);
+                		if (cnt.lines.Count > 1)
+                		{
+                			layerPoint = "T" + Params.DefineMaterial(cnt.lines[0].type);
+                			coordX = ((double)cnt.lines[1].Left) / 2.0;
+                			coordY = ((double)cnt.lines[1].Top) / 2.0 + CorrectTop(cnt.lines[1]);
+                		}
+                		file.WriteLine(layerPoint + "(" + coordX.ToString("F2", culture) + ", " + coordY.ToString("F2", culture) +
+                		              ", \"" + curName + "\");");
+                	}
+                	
+                	for (int i = 0; i < cnt.lines.Count; i++)//each (LineStruct ln in cnt.lines)
+                    {
+                    	if (cnt.lines[i].Length() > 0)
+                    	{
+	                    	coordX = ((double)cnt.lines[i].Left) / 2.0;
+	                		coordY = ((double)cnt.lines[i].Top) / 2.0 + CorrectTop(cnt.lines[i]);
+
+	                    	string moving = "";
+	                    	double coordNext = 0.0;
+	                    	if (cnt.lines[i].Height == 0)
+	                    	{
+	                    		moving = "X";
+	                    		coordNext = ((double)cnt.lines[i].Right) / 2.0;
+	                    	}
+	                    	else
+	                    	{
+	                    		moving = "Y";
+	                    		coordNext = ((double)cnt.lines[i].Bottom) / 2.0 + CorrectBottom(cnt.lines[i]);
+	                    	}
+	                    	
+	                    	file.WriteLine("    W_WIRE(" + GetLineW(cnt.lines[i]) + ") " + Params.DefineMaterial(cnt.lines[i].type) + "(" +
+	                    	               coordX.ToString("F2", culture) + ", " + coordY.ToString("F2", culture) + 
+	                                 ") " + moving + "(" + coordNext.ToString("F2", culture) + ");");
+	                    	
+                    	}
+                    	else
+                    		file.WriteLine("	//Error line");
+                    }
+                	
+                	foreach (ContactSimple contactUnit in cnt.crossing)
+                	{
+                		string cntType = Params.DefineMaterial(contactUnit.layer);
+                		coordX = ((double)contactUnit.x) / 2.0;
+        				coordY = ((double)contactUnit.y) / 2.0;
+        				file.WriteLine("    " + cntType + "(" + coordX.ToString("F2", culture) +
+        				               ", " + coordY.ToString("F2", culture) + ");");
+                	}
+                	
+                }
+                
+                file.WriteLine(AddKnBorder());
+                file.WriteLine(AddKpBorder());
+                file.WriteLine(AddB1Border());
                     
                 file.WriteLine("    ENDF");
                 file.WriteLine("    return " + nameFrag + ";");
@@ -656,6 +909,19 @@ namespace eulerMake
 			string retStr = "    KP(" + leftBorder.ToString("F2", culture) + ", " + bottomBorder.ToString("F2" , culture) +
 				") X(" + rightBorder.ToString("F2", culture) + ") Y(" + topBorder.ToString("F2", culture) + ") X(" + 
 				leftBorder.ToString("F2", culture) + ");";
+			return retStr;
+		}
+		
+		private string AddB1Border()
+		{
+			CultureInfo  culture = CultureInfo.CreateSpecificCulture("en-CA");
+			double leftBorder = ((double)(Params.leftEdge + 1)) / 2.0;
+			double rightBorder = ((double)(wide - 1)) / 2.0;
+			double bottomBorder = ((double)(Params.bottomEdge + 1 )) / 2.0;
+			double topBorder = ((double)(Params.topEdge - 2 )) / 2.0;
+			string retStr = "    B1(" + leftBorder.ToString("F2", culture) + ", " + bottomBorder.ToString("F2" , culture) +
+				") X(" + rightBorder.ToString("F2", culture) + ") Y(" + topBorder.ToString("F2", culture) + ") X(" + 
+				leftBorder.ToString("F2", culture) + ") Y(" + bottomBorder.ToString("F2", culture) + ");";
 			return retStr;
 		}
 		
